@@ -1,56 +1,101 @@
+/* Core Page Reset */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+
 body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    background-color: #f0f0f0;
-    margin: 0;
+    min-height: 100vh;
+    background-color: #000000; /* Deep pitch black background */
+    padding: 20px;
 }
 
+/* Calculator Container Wrapper */
 .calculator {
-    border: 1px solid #ccc;
-    border-radius: 8px;
+    width: 100%;
+    max-width: 330px;
+    background-color: #000000;
     padding: 16px;
-    background-color: #fff;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 40px;
 }
 
+/* Premium iOS Output Screen */
 .calculator-screen {
     width: 100%;
-    height: 50px;
-    font-size: 24px;
+    height: 120px;
     border: none;
-    margin-bottom: 16px;
+    background-color: transparent;
     text-align: right;
-    padding-right: 10px;
-    box-sizing: border-box;
+    padding: 0 20px 10px 20px;
+    font-size: 5.5rem; /* Large dynamic font profile */
+    font-weight: 300; /* Ultra-light Apple weight typography */
+    color: #ffffff;
+    margin-bottom: 12px;
+    pointer-events: none;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
+/* Button Layout Grid Mapping */
 .calculator-buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+    gap: 14px; /* Exact iOS spacing gap */
 }
 
+/* Base Style for All Round iOS Buttons */
 .btn {
-    width: 100%;
-    height: 50px;
-    font-size: 18px;
     border: none;
-    border-radius: 4px;
-    background-color: #f0f0f0;
+    border-radius: 50%;
+    height: 72px;
+    width: 72px;
+    font-size: 2.2rem;
+    font-weight: 400;
     cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: filter 0.15s ease;
+    user-select: none;
 }
 
-.btn:hover {
-    background-color: #e0e0e0;
+/* Dark Gray Styling (Numbers) */
+.btn {
+    background-color: #333333;
+    color: #ffffff;
 }
 
-.operator {
-    background-color: #ff9500;
-    color: white;
+.btn:active {
+    filter: brightness(1.4); /* Smooth Apple-like active fade indicator */
 }
 
-.operator:hover {
-    background-color: #e08400;
+/* Bright Orange Styling (Operators) */
+.btn.operator {
+    background-color: #ff9f0a;
+    color: #ffffff;
+    font-size: 2.5rem;
+}
+
+.btn.operator:active {
+    filter: brightness(1.2) contrast(1.1);
+}
+
+/* Light Gray Styling (Special top functions like Clear) */
+.btn.function {
+    background-color: #a5a5a5;
+    color: #000000;
+}
+
+/* The Wide Zero Button Rule */
+.btn-zero {
+    grid-column: span 2;
+    width: 100%;
+    border-radius: 40px;
+    justify-content: flex-start;
+    padding-left: 28px; /* Offset text to look identical to iOS */
 }
