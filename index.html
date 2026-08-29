@@ -3,14 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS Calculator</title>
+    <title>iOS Calculator with Rust WASM</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="calculator">
-        <input type="text" class="calculator-screen" value="" disabled>
+        <!-- Stacked Display Windows -->
+        <div class="screen-container">
+            <div class="formula-box">0</div>
+            <input type="text" class="calculator-screen" value="0" disabled>
+        </div>
+        
+        <!-- Button Grid Map Layout -->
         <div class="calculator-buttons">
-            <!-- Row 1: Top Control Functions -->
+            <!-- Row 1: Top Actions -->
             <button class="btn function" value="C">AC</button>
             <button class="btn function" value="">±</button>
             <button class="btn function" value="">%</button>
@@ -34,12 +40,14 @@
             <button class="btn" value="3">3</button>
             <button class="btn operator" value="+">+</button>
 
-            <!-- Row 5: Wide Layout Zero Anchor -->
+            <!-- Row 5: Wide Layout Zero Element -->
             <button class="btn btn-zero" value="0">0</button>
             <button class="btn" value=".">.</button>
             <button class="btn operator" value="=">=</button>
         </div>
     </div>
+    
+    <!-- Mandatory module declaration for WebAssembly stream pipelines -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
