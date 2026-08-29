@@ -15,6 +15,21 @@ export function calculate(operation, num1, num2) {
     }
     return ret[0];
 }
+
+/**
+ * @param {string} operation
+ * @param {number} num1
+ * @returns {number}
+ */
+export function calculate_unary(operation, num1) {
+    const ptr0 = passStringToWasm0(operation, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.calculate_unary(ptr0, len0, num1);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
