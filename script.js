@@ -9,23 +9,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     let currentInput = '';
     let operator = '';
     let previousInput = '';
-    let formula = ''; // 💡 Tracks the full mathematical string to display (e.g., "6*6")
+    let formula = ''; 
 
     buttons.forEach(button => {
         button.addEventListener('click', function () {
             const value = this.value;
 
-            // 1. Handle Clear Button
             if (value === 'C') {
-                currentInput = '';
-                operator = '';
-                previousInput = '';
-                formula = '';
+                currentInput = ''; operator = ''; previousInput = ''; formula = '';
                 screen.value = '0';
                 return;
             }
 
-            // 2. Handle Equals Button
             if (value === '=') {
                 if (currentInput && previousInput && operator) {
                     try {
@@ -38,27 +33,25 @@ document.addEventListener('DOMContentLoaded', async function () {
                         else if (operator === '*') rustOp = 'multiply';
                         else if (operator === '/') rustOp = 'divide';
 
-                        // Calculate using your Rust backend
                         const rustRawOutput = calculate(rustOp, p, c);
 
-                        // Show the exact return phrase requested
-                        screen.value = `rust in wasm returned: ${rustRawOutput}`;
+                        // 1. Send the custom string exclusively to your browser developer console log
+                        console.log(`rust in wasm returned: ${rustRawOutput}`);
+
+                        // 2. Keep the calculator screen displaying just the pure number result
+                        screen.value = rustRawOutput.toString();
                         
-                        // Reset memory tracking states for the next calculation
                         currentInput = rustRawOutput.toString();
-                        operator = '';
-                        previousInput = '';
-                        formula = currentInput; // Reset formula to the answer
+                        operator = ''; previousInput = ''; formula = currentInput;
                     } catch (err) {
                         screen.value = err;
-                        currentInput = '';
-                        formula = '';
+                        console.error("Rust execution failed:", err);
+                        currentInput = ''; formula = '';
                     }
                 }
                 return;
             }
 
-            // 3. Handle Math Operators (+, -, *, /)
             if (['+', '-', '*', '/'].includes(value)) {
                 if (currentInput) {
                     if (previousInput) {
@@ -84,7 +77,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     operator = value;
                     currentInput = '';
                     
-                    // Convert standard characters to nice visual symbols for the user screen
                     let visualOp = value;
                     if (value === '*') visualOp = '×';
                     if (value === '/') visualOp = '÷';
@@ -95,10 +87,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 return;
             }
 
-            // 4. Handle Numbers and Decimal Dot Input
             currentInput += value;
             formula += value;
-            screen.value = formula; // 💡 Updates the display with the live ongoing formula sequence
+            screen.value = formula; 
         });
     });
 });
