@@ -1,9 +1,11 @@
 import init, { calculate } from './pkg/wasmcalc.js';
 
 document.addEventListener('DOMContentLoaded', async function () {
+    // 1. Mount the compiled Rust package logic layer securely into local window space
     await init();
 
-    const screen = document.querySelector('.calculator-screen');
+    const mainScreen = document.querySelector('.calculator-screen');
+    const formulaBox = document.querySelector('.formula-box');
     const buttons = document.querySelectorAll('.btn');
     
     let currentInput = '';
@@ -15,12 +17,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         button.addEventListener('click', function () {
             const value = this.value;
 
+            // Handle AC Screen Reset
             if (value === 'C') {
                 currentInput = ''; operator = ''; previousInput = ''; formula = '';
-                screen.value = '0';
+                mainScreen.value = '0';
+                formulaBox.innerText = '0';
                 return;
             }
 
+            // Handle Computation Resolution
             if (value === '=') {
                 if (currentInput && previousInput && operator) {
                     try {
@@ -33,25 +38,29 @@ document.addEventListener('DOMContentLoaded', async function () {
                         else if (operator === '*') rustOp = 'multiply';
                         else if (operator === '/') rustOp = 'divide';
 
+                        // 2. Dispatch operations down the pipeline to the native Rust engine library
                         const rustRawOutput = calculate(rustOp, p, c);
 
-                        // 1. Send the custom string exclusively to your browser developer console log
+                        // 3. Print the custom log tracking sequence out to the developer console tools
                         console.log(`rust in wasm returned: ${rustRawOutput}`);
 
-                        // 2. Keep the calculator screen displaying just the pure number result
-                        screen.value = rustRawOutput.toString();
+                        // 4. Update the visual layout boxes independently
+                        formulaBox.innerText = `${formula} =`;
+                        mainScreen.value = rustRawOutput.toString();
                         
+                        // Set up variables for potential consecutive string operations
                         currentInput = rustRawOutput.toString();
                         operator = ''; previousInput = ''; formula = currentInput;
                     } catch (err) {
-                        screen.value = err;
-                        console.error("Rust execution failed:", err);
+                        mainScreen.value = err;
+                        console.error("Rust context calculation failed:", err);
                         currentInput = ''; formula = '';
                     }
                 }
                 return;
             }
 
+            // Handle Mathematical Operators (+, -, *, /)
             if (['+', '-', '*', '/'].includes(value)) {
                 if (currentInput) {
                     if (previousInput) {
@@ -67,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                             previousInput = calculate(rustOp, p, c).toString();
                         } catch (err) {
-                            screen.value = err;
+                            mainScreen.value = err;
                             return;
                         }
                     } else {
@@ -82,14 +91,18 @@ document.addEventListener('DOMContentLoaded', async function () {
                     if (value === '/') visualOp = '÷';
                     
                     formula += ` ${visualOp} `;
-                    screen.value = formula;
+                    formulaBox.innerText = formula;
                 }
                 return;
             }
 
+            // Fallback: Handle Append Character inputs (Numbers & Dot values)
+            if (value === '' && this.innerText !== '0') return; // Ignore unconfigured ± or % placeholder hits
+            
             currentInput += value;
             formula += value;
-            screen.value = formula; 
+            mainScreen.value = currentInput; 
+            formulaBox.innerText = formula; 
         });
     });
 });
