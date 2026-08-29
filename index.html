@@ -1,53 +1,516 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS Calculator with Rust WASM</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WASM Calc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d0f14;
+      --panel:       #16181f;
+      --panel-edge:  #22252e;
+      --display-bg:  #0d0f14;
+      --digit-bg:    #21242e;
+      --digit-hover: #2a2e3a;
+      --digit-active:#1a1d25;
+      --fn-bg:       #282c38;
+      --fn-hover:    #31364a;
+      --op-bg:       #1a4a8a;
+      --op-hover:    #2058a8;
+      --op-active:   #1040780;
+      --eq-bg:       #1d5fa6;
+      --eq-hover:    #2270c4;
+      --text-primary:#e8eaf2;
+      --text-dim:    #8890a8;
+      --text-op:     #ffffff;
+      --accent:      #4d9fff;
+      --wasm-off:    #f5a623;
+      --wasm-on:     #3ecf8e;
+      --radius-btn:  14px;
+      --radius-panel:26px;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      /* Subtle grid texture on body */
+      background-image:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .calculator {
+      width: 340px;
+      background: var(--panel);
+      border: 1px solid var(--panel-edge);
+      border-radius: var(--radius-panel);
+      padding: 20px 18px 22px;
+      box-shadow:
+        0 40px 80px rgba(0,0,0,.7),
+        0 0 0 1px rgba(255,255,255,.04) inset;
+    }
+
+    /* ── Display ─────────────────────────────────────────── */
+    .display {
+      background: var(--display-bg);
+      border-radius: 14px;
+      padding: 16px 18px 12px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255,255,255,.05);
+      position: relative;
+      min-height: 108px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .display-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wasm-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .04em;
+      color: var(--text-dim);
+      transition: color .4s;
+    }
+    .wasm-badge.ready { color: var(--wasm-on); }
+    .wasm-badge.error { color: #f45b5b; }
+
+    .wasm-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--wasm-off);
+      transition: background .4s, box-shadow .4s;
+    }
+    .wasm-badge.ready .wasm-dot {
+      background: var(--wasm-on);
+      box-shadow: 0 0 6px var(--wasm-on);
+    }
+    .wasm-badge.error .wasm-dot { background: #f45b5b; }
+
+    .expression {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      height: 16px;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .display-number {
+      font-family: 'Space Mono', monospace;
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-align: right;
+      line-height: 1;
+      padding-top: 8px;
+      letter-spacing: -.02em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: color .15s;
+    }
+    .display-number.error {
+      font-size: 18px;
+      color: #f45b5b;
+      padding-top: 20px;
+    }
+    .display-number.small { font-size: 32px; }
+    .display-number.xsmall { font-size: 22px; }
+
+    /* ── Button grid ─────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .btn {
+      height: 72px;
+      border: none;
+      border-radius: var(--radius-btn);
+      font-family: 'Inter', sans-serif;
+      font-size: 22px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-primary);
+      background: var(--digit-bg);
+      border-bottom: 2px solid rgba(0,0,0,.35);
+      transition: background .1s, transform .08s, box-shadow .1s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+    .btn:hover  { background: var(--digit-hover); }
+    .btn:active { background: var(--digit-active); transform: translateY(1px); box-shadow: none; }
+
+    /* Wide zero */
+    .btn.zero {
+      grid-column: span 2;
+      text-align: left;
+      padding-left: 26px;
+    }
+
+    /* Function row (C ± %) */
+    .btn.fn {
+      background: var(--fn-bg);
+      font-size: 18px;
+      color: var(--text-primary);
+    }
+    .btn.fn:hover  { background: var(--fn-hover); }
+    .btn.fn:active { background: #232739; }
+
+    /* Operator column */
+    .btn.op {
+      background: var(--op-bg);
+      color: var(--text-op);
+      font-size: 26px;
+      font-weight: 400;
+    }
+    .btn.op:hover  { background: var(--op-hover); }
+    .btn.op:active { background: #163e72; }
+    /* Active operator (pending) highlight */
+    .btn.op.op-active {
+      background: var(--text-primary);
+      color: var(--op-bg);
+    }
+
+    /* Equals */
+    .btn.eq {
+      background: var(--eq-bg);
+      color: var(--text-op);
+      font-size: 26px;
+      font-weight: 400;
+    }
+    .btn.eq:hover  { background: var(--eq-hover); }
+    .btn.eq:active { background: #173f70; }
+
+    /* Disabled state while WASM loading */
+    .grid.loading .btn { opacity: .45; pointer-events: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn { transition: none; }
+      .wasm-dot { transition: none; }
+    }
+  </style>
 </head>
 <body>
-    <div class="calculator">
-        <!-- Stacked Display Windows -->
-        <div class="screen-container">
-            <div class="formula-box">0</div>
-            <input type="text" class="calculator-screen" value="0" disabled>
-        </div>
-        
-        <!-- Button Grid Map Layout -->
-        <div class="calculator-buttons">
-            <!-- Row 1: Top Actions -->
-            <button class="btn function" value="C">AC</button>
-            <button class="btn function" value="">±</button>
-            <button class="btn function" value="">%</button>
-            <button class="btn operator" value="/">÷</button>
 
-            <!-- Row 2 -->
-            <button class="btn" value="7">7</button>
-            <button class="btn" value="8">8</button>
-            <button class="btn" value="9">9</button>
-            <button class="btn operator" value="*">×</button>
-
-            <!-- Row 3 -->
-            <button class="btn" value="4">4</button>
-            <button class="btn" value="5">5</button>
-            <button class="btn" value="6">6</button>
-            <button class="btn operator" value="-">−</button>
-
-            <!-- Row 4 -->
-            <button class="btn" value="1">1</button>
-            <button class="btn" value="2">2</button>
-            <button class="btn" value="3">3</button>
-            <button class="btn operator" value="+">+</button>
-
-            <!-- Row 5: Wide Layout Zero Element -->
-            <button class="btn btn-zero" value="0">0</button>
-            <button class="btn" value=".">.</button>
-            <button class="btn operator" value="=">=</button>
-        </div>
+<div class="calculator">
+  <div class="display">
+    <div class="display-meta">
+      <div class="wasm-badge" id="wasmBadge">
+        <div class="wasm-dot"></div>
+        <span id="wasmLabel">WASM</span>
+      </div>
+      <div class="expression" id="expression"></div>
     </div>
-    
-    <!-- Mandatory module declaration for WebAssembly stream pipelines -->
-    <script type="module" src="script.js"></script>
+    <div class="display-number" id="display">0</div>
+  </div>
+
+  <div class="grid loading" id="grid">
+    <!-- Row 1: functions + divide -->
+    <button class="btn fn" data-action="clear">C</button>
+    <button class="btn fn" data-action="negate">±</button>
+    <button class="btn fn" data-action="percent">%</button>
+    <button class="btn op" data-action="divide">÷</button>
+
+    <!-- Row 2 -->
+    <button class="btn" data-action="digit" data-value="7">7</button>
+    <button class="btn" data-action="digit" data-value="8">8</button>
+    <button class="btn" data-action="digit" data-value="9">9</button>
+    <button class="btn op" data-action="multiply">×</button>
+
+    <!-- Row 3 -->
+    <button class="btn" data-action="digit" data-value="4">4</button>
+    <button class="btn" data-action="digit" data-value="5">5</button>
+    <button class="btn" data-action="digit" data-value="6">6</button>
+    <button class="btn op" data-action="subtract">−</button>
+
+    <!-- Row 4 -->
+    <button class="btn" data-action="digit" data-value="1">1</button>
+    <button class="btn" data-action="digit" data-value="2">2</button>
+    <button class="btn" data-action="digit" data-value="3">3</button>
+    <button class="btn op" data-action="add">+</button>
+
+    <!-- Row 5 -->
+    <button class="btn zero" data-action="digit" data-value="0">0</button>
+    <button class="btn" data-action="decimal">.</button>
+    <button class="btn eq" data-action="equals">=</button>
+  </div>
+</div>
+
+<script type="module">
+  import init, { calculate, calculate_unary } from "./pkg/wasmcalc.js";
+
+  // ── State ──────────────────────────────────────────────────────────────
+  let currentInput    = "";    // string of digits being typed
+  let storedValue     = null;  // left-hand operand
+  let pendingOp       = null;  // "add" | "subtract" | "multiply" | "divide"
+  let freshInput      = false; // next digit clears currentInput first
+  let justEvaluated   = false; // = was last action
+
+  // ── DOM refs ───────────────────────────────────────────────────────────
+  const displayEl    = document.getElementById("display");
+  const expressionEl = document.getElementById("expression");
+  const wasmBadge    = document.getElementById("wasmBadge");
+  const wasmLabel    = document.getElementById("wasmLabel");
+  const grid         = document.getElementById("grid");
+
+  // ── WASM init ──────────────────────────────────────────────────────────
+  try {
+    await init();
+    wasmBadge.classList.add("ready");
+    wasmLabel.textContent = "WASM ready";
+    grid.classList.remove("loading");
+  } catch (e) {
+    wasmBadge.classList.add("error");
+    wasmLabel.textContent = "WASM failed";
+    console.error("wasm-pack init error:", e);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  const opSymbol = { add: "+", subtract: "−", multiply: "×", divide: "÷" };
+
+  function formatNumber(n) {
+    if (!isFinite(n)) return String(n);
+    // Use exponential if too large/small for display
+    if (Math.abs(n) >= 1e13 || (Math.abs(n) < 1e-6 && n !== 0)) {
+      return n.toExponential(4);
+    }
+    // Strip floating point dust (e.g. 0.1+0.2 artifacts)
+    const s = parseFloat(n.toPrecision(12)).toString();
+    return s;
+  }
+
+  function setDisplay(value, isError = false) {
+    const text = isError ? value : formatNumber(value);
+    displayEl.classList.toggle("error", isError);
+    displayEl.classList.remove("small", "xsmall");
+    if (!isError) {
+      const len = text.length;
+      if (len > 12) displayEl.classList.add("xsmall");
+      else if (len > 8)  displayEl.classList.add("small");
+    }
+    displayEl.textContent = isError ? value : text;
+    if (!isError) currentInput = text;
+  }
+
+  function currentFloat() {
+    const v = parseFloat(currentInput);
+    return isNaN(v) ? 0 : v;
+  }
+
+  function clearOpHighlight() {
+    document.querySelectorAll(".btn.op.op-active")
+      .forEach(b => b.classList.remove("op-active"));
+  }
+
+  function highlightOp(action) {
+    clearOpHighlight();
+    const btn = document.querySelector(`.btn.op[data-action="${action}"]`);
+    if (btn) btn.classList.add("op-active");
+  }
+
+  function updateExpression() {
+    if (pendingOp && storedValue !== null) {
+      expressionEl.textContent =
+        `${formatNumber(storedValue)} ${opSymbol[pendingOp]}`;
+    } else {
+      expressionEl.textContent = "";
+    }
+  }
+
+  function fullReset() {
+    currentInput  = "";
+    storedValue   = null;
+    pendingOp     = null;
+    freshInput    = false;
+    justEvaluated = false;
+    clearOpHighlight();
+    displayEl.classList.remove("error", "small", "xsmall");
+    displayEl.textContent = "0";
+    expressionEl.textContent = "";
+  }
+
+  // ── Click handler ──────────────────────────────────────────────────────
+  grid.addEventListener("click", async e => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+    const action = btn.dataset.action;
+
+    // ── Clear ──────────────────────────────────────────────────────────
+    if (action === "clear") {
+      fullReset();
+      return;
+    }
+
+    // ── Digit ──────────────────────────────────────────────────────────
+    if (action === "digit") {
+      const d = btn.dataset.value;
+      if (freshInput || justEvaluated) {
+        currentInput  = d === "0" ? "0" : d;
+        freshInput    = false;
+        justEvaluated = false;
+      } else {
+        if (currentInput === "0" && d === "0") return;
+        if (currentInput === "0" && d !== ".") currentInput = d;
+        else currentInput = (currentInput || "") + d;
+      }
+      // Limit display length
+      if (currentInput.replace("-","").replace(".","").length > 12) return;
+      displayEl.classList.remove("error", "small", "xsmall");
+      const len = currentInput.length;
+      if (len > 12) displayEl.classList.add("xsmall");
+      else if (len > 8)  displayEl.classList.add("small");
+      displayEl.textContent = currentInput;
+      clearOpHighlight();
+      return;
+    }
+
+    // ── Decimal ────────────────────────────────────────────────────────
+    if (action === "decimal") {
+      if (freshInput || justEvaluated) {
+        currentInput  = "0.";
+        freshInput    = false;
+        justEvaluated = false;
+      } else if (currentInput.includes(".")) {
+        return;
+      } else {
+        currentInput = (currentInput || "0") + ".";
+      }
+      displayEl.textContent = currentInput;
+      clearOpHighlight();
+      return;
+    }
+
+    // ── Unary: ± ──────────────────────────────────────────────────────
+    if (action === "negate") {
+      if (!currentInput || currentInput === "0") return;
+      try {
+        const result = calculate_unary("negate", currentFloat());
+        setDisplay(result);
+        clearOpHighlight();
+      } catch (err) {
+        setDisplay(String(err), true);
+      }
+      return;
+    }
+
+    // ── Unary: % ──────────────────────────────────────────────────────
+    if (action === "percent") {
+      if (!currentInput) return;
+      try {
+        const result = calculate_unary("percent", currentFloat());
+        setDisplay(result);
+        clearOpHighlight();
+      } catch (err) {
+        setDisplay(String(err), true);
+      }
+      return;
+    }
+
+    // ── Binary operators ───────────────────────────────────────────────
+    if (["add","subtract","multiply","divide"].includes(action)) {
+      // Chain: if already have pending op and user typed a right operand
+      if (pendingOp && !freshInput && storedValue !== null) {
+        try {
+          const result = calculate(pendingOp, storedValue, currentFloat());
+          setDisplay(result);
+          storedValue = result;
+        } catch (err) {
+          setDisplay(String(err), true);
+          pendingOp = null;
+          storedValue = null;
+          clearOpHighlight();
+          return;
+        }
+      } else {
+        storedValue = currentFloat();
+      }
+      pendingOp     = action;
+      freshInput    = true;
+      justEvaluated = false;
+      highlightOp(action);
+      updateExpression();
+      return;
+    }
+
+    // ── Equals ────────────────────────────────────────────────────────
+    if (action === "equals") {
+      if (pendingOp === null || storedValue === null) return;
+      try {
+        const rhs    = currentFloat();
+        const result = calculate(pendingOp, storedValue, rhs);
+        expressionEl.textContent =
+          `${formatNumber(storedValue)} ${opSymbol[pendingOp]} ${formatNumber(rhs)} =`;
+        setDisplay(result);
+        storedValue   = null;
+        pendingOp     = null;
+        freshInput    = false;
+        justEvaluated = true;
+        clearOpHighlight();
+      } catch (err) {
+        setDisplay(String(err), true);
+        storedValue = null;
+        pendingOp   = null;
+        clearOpHighlight();
+      }
+    }
+  });
+
+  // ── Keyboard support ───────────────────────────────────────────────────
+  const keyMap = {
+    "0":"0","1":"1","2":"2","3":"3","4":"4",
+    "5":"5","6":"6","7":"7","8":"8","9":"9",
+    "+":"add","-":"subtract","*":"multiply","/":"divide",
+    "Enter":"equals","=":"equals","Escape":"clear",
+    "Backspace":"backspace",".":"decimal","%":"percent"
+  };
+
+  document.addEventListener("keydown", e => {
+    const action = keyMap[e.key];
+    if (!action) return;
+    e.preventDefault();
+
+    if (action === "backspace") {
+      if (!currentInput || freshInput) return;
+      currentInput = currentInput.slice(0, -1) || "0";
+      displayEl.textContent = currentInput;
+      return;
+    }
+
+    // Simulate click on matching button
+    const digit = ["0","1","2","3","4","5","6","7","8","9"].includes(action);
+    let target;
+    if (digit) {
+      target = document.querySelector(`[data-action="digit"][data-value="${action}"]`);
+    } else {
+      target = document.querySelector(`[data-action="${action}"]`);
+    }
+    if (target) target.click();
+  });
+</script>
 </body>
 </html>
